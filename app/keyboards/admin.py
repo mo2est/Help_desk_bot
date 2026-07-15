@@ -28,8 +28,16 @@ def admin_category_detail_keyboard(category_id: int, questions: list[Question]) 
         short = q.text[:30] + "..." if len(q.text) > 30 else q.text
         builder.button(text=f"❓ {short}", callback_data=f"admin:q:{q.id}")
     builder.button(text="➕ Добавить вопрос", callback_data=f"admin:add_q:{category_id}")
-    builder.button(text="🗑 Удалить категорию", callback_data=f"admin:del_cat:{category_id}")
+    builder.button(text="🗑 Удалить категорию", callback_data=f"admin:del_cat_confirm:{category_id}")
     builder.button(text="◀️ Назад", callback_data="admin:categories")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def admin_confirm_delete_category_keyboard(category_id: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🗑 Да, удалить", callback_data=f"admin:del_cat:{category_id}")
+    builder.button(text="❌ Отмена", callback_data=f"admin:cat:{category_id}")
     builder.adjust(1)
     return builder.as_markup()
 

@@ -1,3 +1,6 @@
+import html
+import logging
+
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
@@ -14,6 +17,7 @@ from app.keyboards.client import (
 )
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 WELCOME_TEXT = (
     "👋 Добро пожаловать в Help Desk салона красоты <b>BeautyPro</b>!\n\n"
@@ -54,7 +58,7 @@ async def show_category(callback: CallbackQuery, session: AsyncSession) -> None:
         await callback.answer("Категория не найдена.", show_alert=True)
         return
 
-    text = f"{category.emoji} <b>{category.name}</b>\n\nВыберите вопрос:"
+    text = f"{category.emoji} <b>{html.escape(category.name)}</b>\n\nВыберите вопрос:"
     kb = questions_keyboard(category.questions, category_id)
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     await callback.answer()
@@ -68,7 +72,7 @@ async def show_answer(callback: CallbackQuery, session: AsyncSession) -> None:
         await callback.answer("Вопрос не найден.", show_alert=True)
         return
 
-    text = f"❓ <b>{question.text}</b>\n\n💬 {question.answer}"
+    text = f"❓ <b>{html.escape(question.text)}</b>\n\n💬 {html.escape(question.answer)}"
     kb = answer_keyboard(question.category_id)
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     await callback.answer()
@@ -113,14 +117,17 @@ async def ask_question_receive(
     # Notify admins
     bot: Bot = bot_data["bot"]
     admin_ids: list[int] = bot_data["admin_ids"]
-    user_link = f"@{user.username}" if user.username else f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
+    if user.username:
+        user_link = f"@{user.username}"
+    else:
+        user_link = f"<a href='tg://user?id={user.id}'>{html.escape(user.first_name or 'Пользователь')}</a>"
     admin_text = (
         f"📩 <b>Новый вопрос #{uq.id}</b>\n"
         f"От: {user_link}\n\n"
-        f"<i>{question_text}</i>"
+        f"<i>{html.escape(question_text)}</i>"
     )
     for admin_id in admin_ids:
         try:
             await bot.send_message(admin_id, admin_text, parse_mode="HTML")
         except Exception:
-            pass
+            logger.exception("Failed to notify admin %s about question #%s", admin_id, uq.id)

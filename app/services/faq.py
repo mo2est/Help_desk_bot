@@ -56,14 +56,20 @@ async def get_unanswered_questions(session: AsyncSession) -> list[UserQuestion]:
     return list(result.scalars().all())
 
 
-async def mark_answered(session: AsyncSession, question_id: int) -> None:
+async def get_user_question(session: AsyncSession, question_id: int) -> UserQuestion | None:
     result = await session.execute(
         select(UserQuestion).where(UserQuestion.id == question_id)
     )
-    uq = result.scalar_one_or_none()
-    if uq:
-        uq.is_answered = True
-        await session.commit()
+    return result.scalar_one_or_none()
+
+
+async def mark_answered(session: AsyncSession, question_id: int) -> bool:
+    uq = await get_user_question(session, question_id)
+    if not uq:
+        return False
+    uq.is_answered = True
+    await session.commit()
+    return True
 
 
 # Admin CRUD
