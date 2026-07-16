@@ -19,6 +19,7 @@ from app.keyboards.admin import (
     admin_user_questions_keyboard,
 )
 from app.middlewares.admin_access import AdminAccessMiddleware
+from app.utils import release_prompt, remember_prompt
 
 router = Router()
 router.message.middleware(AdminAccessMiddleware())
@@ -34,12 +35,14 @@ class AdminStates(StatesGroup):
 
 @router.message(Command("admin"))
 async def cmd_admin(message: Message, state: FSMContext) -> None:
+    await release_prompt(message.bot, state)
     await state.clear()
     await message.answer("🔧 <b>Админ-панель</b>", reply_markup=admin_main_keyboard(), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "admin:main")
 async def admin_main(callback: CallbackQuery, state: FSMContext) -> None:
+    await release_prompt(callback.bot, state)
     await state.clear()
     await callback.message.edit_text("🔧 <b>Админ-панель</b>", reply_markup=admin_main_keyboard(), parse_mode="HTML")
     await callback.answer()
@@ -79,23 +82,29 @@ async def admin_add_category_start(callback: CallbackQuery, state: FSMContext) -
         "Введите название новой категории:",
         reply_markup=admin_cancel_keyboard(),
     )
+    await remember_prompt(state, callback.message)
     await callback.answer()
 
 
 @router.message(AdminStates.add_category_name)
 async def admin_add_category_name(message: Message, state: FSMContext) -> None:
+    await release_prompt(message.bot, state)
     if not message.text or not message.text.strip():
-        await message.answer("Пожалуйста, отправьте название текстом.", reply_markup=admin_cancel_keyboard())
+        retry = await message.answer("Пожалуйста, отправьте название текстом.", reply_markup=admin_cancel_keyboard())
+        await remember_prompt(state, retry)
         return
     await state.update_data(cat_name=message.text.strip())
     await state.set_state(AdminStates.add_category_emoji)
-    await message.answer("Введите эмодзи для категории (например: 💇):", reply_markup=admin_cancel_keyboard())
+    prompt = await message.answer("Введите эмодзи для категории (например: 💇):", reply_markup=admin_cancel_keyboard())
+    await remember_prompt(state, prompt)
 
 
 @router.message(AdminStates.add_category_emoji)
 async def admin_add_category_emoji(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    await release_prompt(message.bot, state)
     if not message.text:
-        await message.answer("Пожалуйста, отправьте эмодзи текстом.", reply_markup=admin_cancel_keyboard())
+        retry = await message.answer("Пожалуйста, отправьте эмодзи текстом.", reply_markup=admin_cancel_keyboard())
+        await remember_prompt(state, retry)
         return
     data = await state.get_data()
     emoji = message.text.strip() or "📌"
@@ -147,23 +156,29 @@ async def admin_add_question_start(callback: CallbackQuery, state: FSMContext) -
         "Введите текст вопроса:",
         reply_markup=admin_cancel_keyboard(),
     )
+    await remember_prompt(state, callback.message)
     await callback.answer()
 
 
 @router.message(AdminStates.add_question_text)
 async def admin_add_question_text(message: Message, state: FSMContext) -> None:
+    await release_prompt(message.bot, state)
     if not message.text or not message.text.strip():
-        await message.answer("Пожалуйста, отправьте текст вопроса.", reply_markup=admin_cancel_keyboard())
+        retry = await message.answer("Пожалуйста, отправьте текст вопроса.", reply_markup=admin_cancel_keyboard())
+        await remember_prompt(state, retry)
         return
     await state.update_data(q_text=message.text.strip())
     await state.set_state(AdminStates.add_question_answer)
-    await message.answer("Введите ответ на вопрос:", reply_markup=admin_cancel_keyboard())
+    prompt = await message.answer("Введите ответ на вопрос:", reply_markup=admin_cancel_keyboard())
+    await remember_prompt(state, prompt)
 
 
 @router.message(AdminStates.add_question_answer)
 async def admin_add_question_answer(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    await release_prompt(message.bot, state)
     if not message.text or not message.text.strip():
-        await message.answer("Пожалуйста, отправьте текст ответа.", reply_markup=admin_cancel_keyboard())
+        retry = await message.answer("Пожалуйста, отправьте текст ответа.", reply_markup=admin_cancel_keyboard())
+        await remember_prompt(state, retry)
         return
     data = await state.get_data()
     q = await services.faq.create_question(

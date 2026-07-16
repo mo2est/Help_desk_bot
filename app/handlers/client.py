@@ -15,6 +15,7 @@ from app.keyboards.client import (
     main_menu_keyboard,
     questions_keyboard,
 )
+from app.utils import release_prompt, remember_prompt
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class AskQuestionState(StatesGroup):
 
 
 async def send_main_menu(target: Message | CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
+    await release_prompt(target.bot, state)
     await state.clear()
     categories = await services.faq.get_categories(session)
     kb = main_menu_keyboard(categories)
@@ -85,6 +87,7 @@ async def ask_question_start(callback: CallbackQuery, state: FSMContext) -> None
         "✏️ Напишите ваш вопрос, и мы передадим его администратору:",
         reply_markup=cancel_keyboard(),
     )
+    await remember_prompt(state, callback.message)
     await callback.answer()
 
 
@@ -96,9 +99,14 @@ async def ask_question_receive(
 
     question_text = message.text or ""
     if not question_text.strip():
-        await message.answer("Пожалуйста, отправьте текстовое сообщение.")
+        await release_prompt(message.bot, state)
+        retry = await message.answer(
+            "Пожалуйста, отправьте текстовое сообщение.", reply_markup=cancel_keyboard()
+        )
+        await remember_prompt(state, retry)
         return
 
+    await release_prompt(message.bot, state)
     user = message.from_user
     uq = await services.faq.save_user_question(
         session,
